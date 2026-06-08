@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -78,49 +77,20 @@ def get_state():
 
 
 # ---------------------------------------------------------------------------
-# Chart helpers (Altair — bundled with Streamlit, reliable on Cloud)
+# Chart helpers (native Streamlit — no extra dependencies)
 # ---------------------------------------------------------------------------
-def h_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str,
-                scheme: str = "tealblues") -> alt.Chart:
-    height = max(250, len(df) * 35)
-    return (
-        alt.Chart(df)
-        .mark_bar()
-        .encode(
-            x=alt.X(f"{x_col}:Q", title=x_col),
-            y=alt.Y(f"{y_col}:N", sort="-x", title=y_col),
-            color=alt.Color(f"{x_col}:Q", scale=alt.Scale(scheme=scheme)),
-        )
-        .properties(title=title, height=height)
-    )
+def show_h_bar(df: pd.DataFrame, value_col: str, label_col: str,
+               title: str) -> None:
+    st.caption(title)
+    chart_df = df.set_index(label_col)[[value_col]].sort_values(value_col)
+    st.bar_chart(chart_df, use_container_width=True, horizontal=True)
 
 
-def v_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str,
-                scheme: str = "viridis") -> alt.Chart:
-    return (
-        alt.Chart(df)
-        .mark_bar()
-        .encode(
-            x=alt.X(f"{x_col}:N", title=x_col),
-            y=alt.Y(f"{y_col}:Q", title=y_col),
-            color=alt.Color(f"{y_col}:Q", scale=alt.Scale(scheme=scheme)),
-        )
-        .properties(title=title, height=350)
-    )
-
-
-def donut_chart(df: pd.DataFrame, label_col: str, value_col: str,
-                title: str) -> alt.Chart:
-    return (
-        alt.Chart(df)
-        .mark_arc(innerRadius=60)
-        .encode(
-            theta=alt.Theta(f"{value_col}:Q"),
-            color=alt.Color(f"{label_col}:N", title=label_col),
-            tooltip=[label_col, value_col],
-        )
-        .properties(title=title, height=350)
-    )
+def show_v_bar(df: pd.DataFrame, label_col: str, value_col: str,
+               title: str) -> None:
+    st.caption(title)
+    chart_df = df.set_index(label_col)[[value_col]]
+    st.bar_chart(chart_df, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
@@ -255,11 +225,7 @@ def dashboard_view(movies, users, engine, user):
             for m, score in recs
         ])
         st.dataframe(rec_df, use_container_width=True, hide_index=True)
-        st.altair_chart(
-            h_bar_chart(rec_df, "Match score", "Movie",
-                        "Personalised match scores"),
-            use_container_width=True,
-        )
+        show_h_bar(rec_df, "Match score", "Movie", "Personalised match scores")
     else:
         st.info("Rate a few movies to unlock personalised recommendations.")
 
@@ -274,22 +240,15 @@ def dashboard_view(movies, users, engine, user):
             {"Movie": m.title, "Avg rating": m.average_rating(),
              "Ratings": m.rating_count()} for m in trending
         ])
-        st.altair_chart(
-            h_bar_chart(trend_df, "Avg rating", "Movie",
-                        "Top-rated movies", scheme="orangered"),
-            use_container_width=True,
-        )
+        show_h_bar(trend_df, "Avg rating", "Movie", "Top-rated movies")
 
     with right:
         st.subheader("🎭 Popular Genres")
         pop = engine.popular_genres()
         if pop:
             genre_df = pd.DataFrame(pop, columns=["Genre", "Total ratings"])
-            st.altair_chart(
-                donut_chart(genre_df, "Genre", "Total ratings",
-                            "Engagement share by genre"),
-                use_container_width=True,
-            )
+            show_v_bar(genre_df, "Genre", "Total ratings",
+                       "Popular genres by rating activity")
 
     st.divider()
 
@@ -410,12 +369,8 @@ def admin_view():
             w_df = pd.DataFrame([
                 {"Movie": m.title, "Unique viewers": c} for m, c in watched
             ])
-            st.altair_chart(
-                h_bar_chart(w_df, "Unique viewers", "Movie",
-                            "Most-watched movies (by unique viewers)",
-                            scheme="blues"),
-                use_container_width=True,
-            )
+            show_h_bar(w_df, "Unique viewers", "Movie",
+                       "Most-watched movies (by unique viewers)")
         else:
             st.info("No engagement data yet.")
 
@@ -434,11 +389,7 @@ def admin_view():
         pop = engine.popular_genres()
         if pop:
             g_df = pd.DataFrame(pop, columns=["Genre", "Ratings"])
-            st.altair_chart(
-                v_bar_chart(g_df, "Genre", "Ratings",
-                            "Ratings volume by genre"),
-                use_container_width=True,
-            )
+            show_v_bar(g_df, "Genre", "Ratings", "Ratings volume by genre")
 
 
 # ---------------------------------------------------------------------------
@@ -480,5 +431,4 @@ def main():
     st.sidebar.caption("ITS74004 A3 · AI Movie Recommendation System")
 
 
-if __name__ == "__main__":
-    main()
+main()

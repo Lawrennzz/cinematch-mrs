@@ -20,6 +20,8 @@ from typing import Any, Dict, List
 # ---------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORE_PATH = os.path.join(BASE_DIR, "mrs_store.json")
+# Streamlit Cloud may block writes in the repo folder — use /tmp as fallback.
+FALLBACK_STORE_PATH = os.path.join("/tmp", "mrs_store.json")
 
 # Unique key required to access the administrative console (Task 2.3).
 ADMIN_KEY = "ADMIN-2026-MRS"
@@ -95,23 +97,35 @@ def default_store() -> Dict[str, Any]:
     }
 
 
+def _active_store_path() -> str:
+    """Pick a writable path (repo dir or /tmp on Streamlit Cloud)."""
+    for path in (STORE_PATH, FALLBACK_STORE_PATH):
+        try:
+            with open(path, "a", encoding="utf-8"):
+                pass
+            return path
+        except OSError:
+            continue
+    return STORE_PATH
+
+
 def load_store() -> Dict[str, Any]:
     """Load the JSON store from disk, creating it from seed data if missing."""
-    if not os.path.exists(STORE_PATH):
-        store = default_store()
-        save_store(store)
-        return store
+    path = _active_store_path()
+    if not os.path.exists(path):
+        return default_store()
     try:
-        with open(STORE_PATH, "r", encoding="utf-8") as fh:
+        with open(path, "r", encoding="utf-8") as fh:
             return json.load(fh)
     except (json.JSONDecodeError, OSError):
-        # Corrupted file -> reset to defaults.
-        store = default_store()
-        save_store(store)
-        return store
+        return default_store()
 
 
 def save_store(store: Dict[str, Any]) -> None:
-    """Persist the data store to disk."""
-    with open(STORE_PATH, "w", encoding="utf-8") as fh:
-        json.dump(store, fh, indent=2)
+    """Persist the data store to disk (silently skips if host is read-only)."""
+    path = _active_store_path()
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(store, fh, indent=2)
+    except OSError:
+        pass  # Session state still holds data for this visit.
