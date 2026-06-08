@@ -141,8 +141,44 @@ def auth_view(users: Dict[str, User]):
 # ---------------------------------------------------------------------------
 # Reusable widgets
 # ---------------------------------------------------------------------------
+def show_recommendations_panel(engine: RecommendationEngine, user: User) -> None:
+    """Show personalised picks — used on Rate page and Dashboard."""
+    st.subheader("🎯 Recommended For You")
+    if not user.ratings:
+        st.info(
+            "**Step 1:** Rate at least one movie below (1–5 stars), then your "
+            "personalised list will appear here automatically."
+        )
+        trending = engine.trending(top_n=5)
+        st.caption("Until then, here are trending movies:")
+        for m in trending:
+            st.write(f"• **{m.title}** ({', '.join(m.genres)})")
+        return
+
+    prefs = user.preferred_genres(engine.movies, top_n=3)
+    if prefs:
+        st.caption(f"Based on your ratings, you seem to enjoy: **{', '.join(prefs)}**")
+
+    recs = engine.recommend(user, top_n=5)
+    if not recs:
+        st.warning("You've rated many movies! Try rating in a new genre for more picks.")
+        return
+
+    rec_df = pd.DataFrame([
+        {
+            "Movie": m.title,
+            "Genres": ", ".join(m.genres),
+            "Match %": int(round(score * 100)),
+            "Avg rating": m.average_rating(),
+        }
+        for m, score in recs
+    ])
+    st.dataframe(rec_df, width="stretch", hide_index=True)
+    show_h_bar(rec_df, "Match %", "Movie", "Top picks matched to your taste")
+
+
 def movie_card(movie: Movie, user: User, key_prefix: str):
-    """Render a movie with its rating control."""
+    """Render a movie with a clear 1–5 star rating control."""
     with st.container(border=True):
         st.markdown(f"**{movie.title}** ({movie.year})")
         st.caption(" · ".join(movie.genres))
@@ -151,41 +187,63 @@ def movie_card(movie: Movie, user: User, key_prefix: str):
         avg = movie.average_rating()
         st.write(f"⭐ {avg if avg else '—'}  ·  {movie.rating_count()} ratings")
 
-        current = user.ratings.get(str(movie.movie_id), 0)
-        rating = st.slider(
-            "Your rating",
-            min_value=0, max_value=5,
-            value=int(current),
+        current = int(user.ratings.get(str(movie.movie_id), 0))
+        if current:
+            st.success(f"You rated this: **{current} / 5 stars**")
+
+        rating = st.select_slider(
+            "Your rating (1 = poor, 5 = excellent)",
+            options=[1, 2, 3, 4, 5],
+            value=current if current else 3,
             key=f"{key_prefix}_rate_{movie.movie_id}",
-            help="0 = not rated",
         )
         if st.button("Save rating", key=f"{key_prefix}_save_{movie.movie_id}",
-                     width="stretch"):
-            if rating == 0:
-                st.warning("Pick a rating between 1 and 5.")
-            else:
-                movies, users, _ = get_state()
-                users[user.username].rate_movie(movie.movie_id, rating)
-                persist(movies, users)
-                st.success(f"Saved {rating}★ for {movie.title}")
-                st.rerun()
+                     width="stretch", type="primary"):
+            movies, users, _ = get_state()
+            users[user.username].rate_movie(movie.movie_id, rating)
+            persist(movies, users)
+            st.session_state["just_rated"] = movie.title
+            st.rerun()
 
 
 # ---------------------------------------------------------------------------
-# Task 2.1 - Rate & search
+# Task 2.1 - Rate, search & recommendations (same page)
 # ---------------------------------------------------------------------------
 def rate_and_search_view(movies, users, engine, user):
-    st.header("🔍 Discover & Rate Movies")
+    user = users[user.username]
 
-    query = st.text_input("Search by title or genre",
-                          placeholder="e.g. Inception, Sci-Fi, Horror...")
+    st.header("⭐ Rate Movies & Get Recommendations")
+    st.markdown(
+        "**How it works:** (1) Search or browse movies → (2) Pick 1–5 stars and "
+        "click **Save rating** → (3) Your recommendations update at the top "
+        "based on genres you like."
+    )
+
+    saved = st.session_state.pop("just_rated", None)
+    if saved:
+        st.success(
+            f"Rating saved for **{saved}** — see your updated recommendations above!"
+        )
+
+    show_recommendations_panel(engine, user)
+    st.divider()
+
+    st.subheader("🔍 Search Movies")
+    query = st.text_input(
+        "Search by title or genre",
+        placeholder="e.g. Inception, Sci-Fi, Horror...",
+        key="movie_search",
+    )
     if query:
         results = engine.search(query)
         st.write(f"Found **{len(results)}** result(s) for '{query}'")
-        cols = st.columns(3)
-        for i, movie in enumerate(results):
-            with cols[i % 3]:
-                movie_card(movie, user, key_prefix="search")
+        if not results:
+            st.warning("No matches. Try another title or genre.")
+        else:
+            cols = st.columns(3)
+            for i, movie in enumerate(results):
+                with cols[i % 3]:
+                    movie_card(movie, user, key_prefix="search")
     else:
         st.subheader("Browse the catalogue")
         genres = ["All"] + sorted({g for m in movies for g in m.genres})
@@ -215,19 +273,7 @@ def dashboard_view(movies, users, engine, user):
 
     st.divider()
 
-    # -- Top recommendations ----------------------------------------------
-    st.subheader("🎯 Top Recommended For You")
-    recs = engine.recommend(user, top_n=5)
-    if recs:
-        rec_df = pd.DataFrame([
-            {"Movie": m.title, "Genres": ", ".join(m.genres),
-             "Match score": round(score, 3), "Avg rating": m.average_rating()}
-            for m, score in recs
-        ])
-        st.dataframe(rec_df, width="stretch", hide_index=True)
-        show_h_bar(rec_df, "Match score", "Movie", "Personalised match scores")
-    else:
-        st.info("Rate a few movies to unlock personalised recommendations.")
+    show_recommendations_panel(engine, user)
 
     st.divider()
 
@@ -406,14 +452,14 @@ def main():
         st.sidebar.success(f"Logged in as **{current}**")
         page = st.sidebar.radio(
             "Navigate",
-            ["Discover & Rate", "My Dashboard", "Admin Console"],
+            ["Rate & Recommend", "My Dashboard", "Admin Console"],
         )
         if st.sidebar.button("Log out", width="stretch"):
             st.session_state.pop("current_user", None)
             st.session_state.pop("admin_ok", None)
             st.rerun()
 
-        if page == "Discover & Rate":
+        if page == "Rate & Recommend":
             rate_and_search_view(movies, users, engine, user)
         elif page == "My Dashboard":
             dashboard_view(movies, users, engine, user)
