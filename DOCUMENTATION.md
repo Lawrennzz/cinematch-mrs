@@ -14,152 +14,128 @@
 
 ## Task 1.1 — UML Class Diagram (5 Marks)
 
-The MRS is modelled with four core classes: **User**, **Movie**,
-**RecommendationEngine** and **Admin**. The diagram below shows their
-attributes, methods and relationships.
+**Purpose:** Design the object-oriented structure of the Movie Recommendation
+System (MRS).
+
+**Summary:** The UML class diagram models the MRS using four classes — User,
+Movie, RecommendationEngine, and Admin — each with at least two attributes and
+one method to support rating, recommendation, and catalogue management.
 
 ![UML Class Diagram](assets/uml_class_diagram.png)
 
-*(Image file: `assets/uml_class_diagram.png`. A text version is given below in
-case the image does not render.)*
+The **User** class is associated with **Movie** through the *rates*
+relationship, meaning one user can rate many movies and one movie can receive
+ratings from many users. The **RecommendationEngine** class aggregates both
+**User** and **Movie** objects so it can analyse behaviour and generate
+recommendations. The **Admin** class depends on **Movie** to add, edit, and
+remove films in the catalogue through secure administrative access.
 
-```
-+---------------------------+        rates        +---------------------------+
-|           User            |---------------------|           Movie           |
-+---------------------------+                     +---------------------------+
-| - username: str           |                     | - movie_id: int           |
-| - password: str           |                     | - title: str              |
-| - ratings: Dict[int,int]  |                     | - genres: List[str]       |
-| - history: List[int]      |                     | - year: int               |
-+---------------------------+                     | - ratings: Dict[str,int]  |
-| + rate_movie(id, score)   |                     +---------------------------+
-| + add_to_history(id)      |                     | + add_rating(user, score) |
-| + preferred_genres()      |                     | + average_rating(): float |
-+---------------------------+                     | + rating_count(): int     |
-           ^                                       +---------------------------+
-           | 1..*                                         ^            ^
-           |                                              | 1..*       | manages
-+---------------------------+                             |            |
-|   RecommendationEngine    |-----------------------------+      +-----------+
-+---------------------------+                                    |   Admin   |
-| - movies: List[Movie]     |                                    +-----------+
-| - users: Dict[str,User]   |                                    | - admin_key      |
-+---------------------------+                                    | - actions_log    |
-| + recommend(user): List   |                                    +-----------+
-| + trending(): List[Movie] |                                    | + authenticate() |
-| + popular_genres()        |                                    | + add_movie()    |
-| + search(query)           |                                    | + edit_movie()   |
-+---------------------------+                                    | + remove_movie() |
-                                                                 +-----------+
-```
-
-### Relationships between the classes
-
-| Relationship | Type | Meaning |
-|---|---|---|
-| **User — Movie** | Association (`rates`) | A user rates many movies; a movie is rated by many users (many-to-many). The rating value links the two. |
-| **RecommendationEngine — User** | Aggregation (`1..*`) | The engine holds a collection of users to build preference profiles, but users exist independently of the engine. |
-| **RecommendationEngine — Movie** | Aggregation (`1..*`) | The engine references the full movie catalogue to score and rank candidates. |
-| **Admin — Movie** | Dependency (`manages`) | The admin acts on the movie catalogue (create/update/delete) but does not *own* individual movies. |
-
-This separation follows the **single-responsibility principle**: data entities
-(`User`, `Movie`) hold state, the `RecommendationEngine` holds the AI/analytics
-logic, and `Admin` holds privileged operations.
+Each class has a clear role in the system: User and Movie store data,
+RecommendationEngine handles AI recommendation logic, and Admin manages the
+movie catalogue. This structure keeps the system organised, easy to maintain,
+and suitable for future improvements such as advanced machine learning models.
 
 ---
 
 ## Task 1.2 — Description of Attributes and Methods (5 Marks)
 
 ### Class `Movie`
-| Member | Type | Description & rationale |
-|---|---|---|
-| `movie_id` | attribute | Unique integer key. Needed so ratings/history can reference a film unambiguously even if two films share a title. |
-| `title` | attribute | Human-readable name shown in the UI and used by search. |
-| `genres` | attribute | List of genre tags — the **feature vector** for content-based recommendation and genre analytics. |
-| `year`, `description` | attribute | Metadata for display and richer search. |
-| `ratings` | attribute | Maps `username → score`; lets each movie compute its own statistics. |
-| `add_rating(user, score)` | method | Records or overwrites a user's rating; encapsulates rating state inside the movie. |
-| `average_rating()` | method | Returns the mean score — the headline quality metric used in trending and tie-breaking. |
-| `rating_count()` | method | Number of ratings; used to weight trending so popular films aren't beaten by a single 5-star vote. |
+
+**Summary & purpose:** The `Movie` class stores all information about a film in
+the catalogue — including its title, genres, and ratings — so the system can
+display movie details, calculate popularity, and use genre data as input for
+recommendations.
+
+| Member | Type | Description | Rationale |
+|---|---|---|---|
+| `movie_id` | Attribute | Unique ID for each movie. | Lets ratings and history reference the correct film. |
+| `title` | Attribute | Name of the movie. | Shown in the UI and used for search. |
+| `genres` | Attribute | List of genre tags. | Used as features for content-based recommendations. |
+| `year` | Attribute | Release year. | Provides useful movie metadata. |
+| `description` | Attribute | Short plot summary. | Helps users decide what to watch. |
+| `ratings` | Attribute | Maps username to score. | Stores all user ratings for that movie. |
+| `add_rating(user, score)` | Method | Saves or updates a rating. | Keeps rating logic inside the `Movie` class. |
+| `average_rating()` | Method | Returns the mean rating. | Used for trending and recommendation scoring. |
+| `rating_count()` | Method | Returns number of ratings. | Prevents one high rating from dominating rankings. |
 
 ### Class `User`
-| Member | Type | Description & rationale |
-|---|---|---|
-| `username` | attribute | Unique login identifier and key in the user store. |
-| `password` | attribute | Credential for authentication (stored plainly here for coursework only; production would hash it). |
-| `ratings` | attribute | Maps `movie_id → score`; the raw signal the recommender learns from. |
-| `history` | attribute | Ordered list of watched movie IDs — powers the watch-log and engagement analytics. |
-| `rate_movie(id, score)` | method | Single entry point that stores a rating **and** logs the view, keeping data consistent. |
-| `add_to_history(id)` | method | Maintains a de-duplicated, recency-ordered watch list. |
-| `preferred_genres()` | method | Aggregates highly-rated genres — a quick, explainable summary of taste. |
+
+**Summary & purpose:** The `User` class represents a registered viewer and
+records their login details, movie ratings, and watch history so the platform
+can authenticate them, learn their preferences, and show personalised content
+on their dashboard.
+
+| Member | Type | Description | Rationale |
+|---|---|---|---|
+| `username` | Attribute | Unique login name. | Identifies the user in the system. |
+| `password` | Attribute | Login credential. | Used for authentication. |
+| `ratings` | Attribute | Maps movie ID to score. | Main input for personalised recommendations. |
+| `history` | Attribute | List of watched movie IDs. | Supports watch logs and engagement analysis. |
+| `rate_movie(id, score)` | Method | Rates a movie and logs it as watched. | Keeps ratings and history consistent. |
+| `add_to_history(id)` | Method | Adds a movie to watch history. | Maintains a recent, de-duplicated watch list. |
+| `preferred_genres()` | Method | Returns top liked genres. | Gives a simple summary of user taste. |
 
 ### Class `RecommendationEngine`
-| Member | Type | Description & rationale |
-|---|---|---|
-| `movies` | attribute | The candidate pool to recommend from. |
-| `users` | attribute | All users, needed for cross-user analytics (e.g. most-watched). |
-| `recommend(user)` | method | Core AI: builds a weighted genre profile and ranks unseen movies by cosine similarity + popularity. |
-| `trending()` | method | Returns a Bayesian-weighted ranking of top movies for the "trending" feed. |
-| `popular_genres()` | method | Aggregates rating volume per genre for insight charts. |
-| `search(query)` | method | Case-insensitive lookup across title and genres for Task 2.1. |
+
+**Summary & purpose:** The `RecommendationEngine` class is the AI core of the
+system — it analyses user behaviour and movie data to generate personalised
+recommendations, identify trending titles, report popular genres, and support
+movie search across the catalogue.
+
+| Member | Type | Description | Rationale |
+|---|---|---|---|
+| `movies` | Attribute | Full movie catalogue. | Needed to search and recommend titles. |
+| `users` | Attribute | All registered users. | Supports recommendations and analytics. |
+| `recommend(user)` | Method | Returns top recommended movies. | Core AI logic using genre similarity. |
+| `trending()` | Method | Returns popular movies. | Shows what is currently popular on the platform. |
+| `popular_genres()` | Method | Returns most active genres. | Supports genre insight charts. |
+| `search(query)` | Method | Finds movies by title or genre. | Helps users quickly locate films. |
 
 ### Class `Admin`
-| Member | Type | Description & rationale |
-|---|---|---|
-| `admin_key` | attribute | Secret key gating the admin console (Task 2.3). |
-| `actions_log` | attribute | Audit trail of administrative changes for accountability. |
-| `authenticate(key)` | method | Validates the supplied key before privileged operations are allowed. |
-| `add_movie / edit_movie / remove_movie` | methods | CRUD operations on the catalogue, restricted to administrators. |
 
-**Overall rationale:** attributes capture the minimum *state* each entity needs,
-while methods expose *behaviour* through a clean interface. This makes the system
-modular, testable and easy to extend (e.g. swapping the recommender for a
-collaborative-filtering model touches only `RecommendationEngine`).
+**Summary & purpose:** The `Admin` class provides secure, restricted access
+for system administrators to manage the movie catalogue and review user
+engagement, ensuring only authorised staff can add, edit, or remove content.
+
+| Member | Type | Description | Rationale |
+|---|---|---|---|
+| `admin_key` | Attribute | Secret admin access key. | Restricts admin features to authorised users. |
+| `actions_log` | Attribute | Record of admin actions. | Tracks changes made to the system. |
+| `authenticate(key)` | Method | Checks the admin key. | Protects the admin console. |
+| `add_movie()` | Method | Adds a new movie. | Keeps the catalogue up to date. |
+| `edit_movie()` | Method | Updates movie details. | Allows correction of movie information. |
+| `remove_movie()` | Method | Deletes a movie. | Removes outdated or unwanted titles. |
+
+### Overall System
+
+**Purpose:** Design an AI-powered Movie Recommendation System for a streaming platform.
+
+**Summary:** The MRS is an object-oriented system that uses user ratings and
+watch history to generate personalised movie recommendations, display trending
+content and genre insights, and allow administrators to manage the catalogue,
+supporting both user engagement and platform analytics through a modular class
+design.
 
 ---
 
 ## Task 1.3 — How the System Analyses Behaviour & Improves Over Time (5 Marks)
 
-**1. Capturing behaviour.** Every interaction is logged: explicit **ratings**
-(1–5 stars) and implicit **watch history**. These become the user's behavioural
-signal.
+The MRS analyses user behaviour by recording movie ratings and watch history.
+Each rating is stored through `User.rate_movie()`, which helps the system learn
+what genres and films a user enjoys. The `RecommendationEngine` uses this data
+to build a preference profile for each user.
 
-**2. Building a preference profile.** For each user, the engine converts rated
-movies into genre vectors and combines them into a single weighted
-**preference vector**. Ratings are centred around the mid-point (2.5) so that a
-1-star rating *pushes the profile away* from that genre while a 5-star rating
-*pulls it toward* that genre.
+Recommendations are generated using content-based filtering. Rated movies are
+converted into genre vectors and combined into a user profile. Unseen movies
+are ranked by cosine similarity to that profile, with a small popularity score
+used for tie-breaking. New users with no ratings are shown trending movies
+until enough data is available.
 
-**3. Generating recommendations.** Each unseen movie is scored by **cosine
-similarity** between the user profile and the movie's genre vector, plus a small
-**popularity** term for tie-breaking:
-
-```
-score = 0.85 × cosine(user_profile, movie_genres) + 0.15 × normalised_average_rating
-```
-
-The highest-scoring unseen movies are recommended. New users with no ratings hit
-a **cold-start fallback** and are shown trending titles until enough signal
-exists.
-
-**4. Real-time data updates.** Because ratings and history are written back to
-the data store immediately and the engine is rebuilt on each page load, a new
-rating instantly reshapes that user's profile — the next set of recommendations
-reflects it without any manual retraining step.
-
-**5. How machine learning improves recommendations.** The current engine is a
-content-based model, but the architecture is designed to scale up:
-- **Collaborative filtering** (matrix factorisation / SVD) can learn latent
-  taste factors from the full `users × movies` rating matrix to recommend films
-  *similar users* liked, even across genres.
-- **Hybrid models** combine content + collaborative signals to overcome
-  cold-start and popularity bias.
-- **Online learning / periodic retraining** lets the model adapt as tastes and
-  the catalogue change, while **A/B testing** measures whether new models
-  actually increase engagement (click-through, watch-time, retention).
-
-Because the recommender logic is isolated in the `RecommendationEngine` class,
-any of these algorithms can be dropped in without changing the UI or data layer.
+The system updates in real time because new ratings are saved immediately and
+the engine is rebuilt on the next page load, so recommendations change as soon
+as the user rates more films. Machine learning can improve results further over
+time through methods such as collaborative filtering and hybrid models, which
+learn from similar users and adapt as more viewing data is collected.
 
 ---
 
