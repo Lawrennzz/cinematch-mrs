@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+import altair as alt
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 from data import ADMIN_KEY, load_store, save_store
@@ -75,6 +75,52 @@ def get_state():
     movies, users = build_objects(st.session_state.store)
     engine = RecommendationEngine(movies, users)
     return movies, users, engine
+
+
+# ---------------------------------------------------------------------------
+# Chart helpers (Altair — bundled with Streamlit, reliable on Cloud)
+# ---------------------------------------------------------------------------
+def h_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str,
+                scheme: str = "tealblues") -> alt.Chart:
+    height = max(250, len(df) * 35)
+    return (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X(f"{x_col}:Q", title=x_col),
+            y=alt.Y(f"{y_col}:N", sort="-x", title=y_col),
+            color=alt.Color(f"{x_col}:Q", scale=alt.Scale(scheme=scheme)),
+        )
+        .properties(title=title, height=height)
+    )
+
+
+def v_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str,
+                scheme: str = "viridis") -> alt.Chart:
+    return (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X(f"{x_col}:N", title=x_col),
+            y=alt.Y(f"{y_col}:Q", title=y_col),
+            color=alt.Color(f"{y_col}:Q", scale=alt.Scale(scheme=scheme)),
+        )
+        .properties(title=title, height=350)
+    )
+
+
+def donut_chart(df: pd.DataFrame, label_col: str, value_col: str,
+                title: str) -> alt.Chart:
+    return (
+        alt.Chart(df)
+        .mark_arc(innerRadius=60)
+        .encode(
+            theta=alt.Theta(f"{value_col}:Q"),
+            color=alt.Color(f"{label_col}:N", title=label_col),
+            tooltip=[label_col, value_col],
+        )
+        .properties(title=title, height=350)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -209,11 +255,11 @@ def dashboard_view(movies, users, engine, user):
             for m, score in recs
         ])
         st.dataframe(rec_df, use_container_width=True, hide_index=True)
-        fig = px.bar(rec_df, x="Match score", y="Movie", orientation="h",
-                     color="Match score", color_continuous_scale="Tealgrn",
-                     title="Personalised match scores")
-        fig.update_layout(yaxis={"categoryorder": "total ascending"})
-        st.plotly_chart(fig, use_container_width=True)
+        st.altair_chart(
+            h_bar_chart(rec_df, "Match score", "Movie",
+                        "Personalised match scores"),
+            use_container_width=True,
+        )
     else:
         st.info("Rate a few movies to unlock personalised recommendations.")
 
@@ -228,20 +274,22 @@ def dashboard_view(movies, users, engine, user):
             {"Movie": m.title, "Avg rating": m.average_rating(),
              "Ratings": m.rating_count()} for m in trending
         ])
-        fig_t = px.bar(trend_df, x="Avg rating", y="Movie", orientation="h",
-                       color="Avg rating", color_continuous_scale="Sunsetdark",
-                       title="Top-rated movies")
-        fig_t.update_layout(yaxis={"categoryorder": "total ascending"})
-        st.plotly_chart(fig_t, use_container_width=True)
+        st.altair_chart(
+            h_bar_chart(trend_df, "Avg rating", "Movie",
+                        "Top-rated movies", scheme="orangered"),
+            use_container_width=True,
+        )
 
     with right:
         st.subheader("🎭 Popular Genres")
         pop = engine.popular_genres()
         if pop:
             genre_df = pd.DataFrame(pop, columns=["Genre", "Total ratings"])
-            fig_g = px.pie(genre_df, names="Genre", values="Total ratings",
-                           title="Engagement share by genre", hole=0.4)
-            st.plotly_chart(fig_g, use_container_width=True)
+            st.altair_chart(
+                donut_chart(genre_df, "Genre", "Total ratings",
+                            "Engagement share by genre"),
+                use_container_width=True,
+            )
 
     st.divider()
 
@@ -362,12 +410,12 @@ def admin_view():
             w_df = pd.DataFrame([
                 {"Movie": m.title, "Unique viewers": c} for m, c in watched
             ])
-            fig_w = px.bar(w_df, x="Unique viewers", y="Movie",
-                           orientation="h", color="Unique viewers",
-                           color_continuous_scale="Blues",
-                           title="Most-watched movies (by unique viewers)")
-            fig_w.update_layout(yaxis={"categoryorder": "total ascending"})
-            st.plotly_chart(fig_w, use_container_width=True)
+            st.altair_chart(
+                h_bar_chart(w_df, "Unique viewers", "Movie",
+                            "Most-watched movies (by unique viewers)",
+                            scheme="blues"),
+                use_container_width=True,
+            )
         else:
             st.info("No engagement data yet.")
 
@@ -386,9 +434,11 @@ def admin_view():
         pop = engine.popular_genres()
         if pop:
             g_df = pd.DataFrame(pop, columns=["Genre", "Ratings"])
-            fig_pg = px.bar(g_df, x="Genre", y="Ratings", color="Ratings",
-                            color_continuous_scale="Viridis")
-            st.plotly_chart(fig_pg, use_container_width=True)
+            st.altair_chart(
+                v_bar_chart(g_df, "Genre", "Ratings",
+                            "Ratings volume by genre"),
+                use_container_width=True,
+            )
 
 
 # ---------------------------------------------------------------------------
