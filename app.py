@@ -332,7 +332,7 @@ def admin_view():
             admin = Admin(ADMIN_KEY)
             if admin.authenticate(key):
                 st.session_state.admin_ok = True
-                st.success("Admin access granted.")
+                st.session_state["admin_flash"] = "Admin access granted."
                 st.rerun()
             else:
                 st.error("Incorrect admin key.")
@@ -341,6 +341,10 @@ def admin_view():
 
     movies, users, engine = get_state()
     admin = Admin(ADMIN_KEY)
+
+    admin_msg = st.session_state.pop("admin_flash", None)
+    if admin_msg:
+        st.success(admin_msg)
 
     tab_manage, tab_analytics = st.tabs(
         ["Manage Catalogue", "User Engagement"])
@@ -360,7 +364,7 @@ def admin_view():
                     glist = [g.strip() for g in genres.split(",") if g.strip()]
                     admin.add_movie(movies, title, glist, int(year), desc)
                     persist(movies, users)
-                    st.success(f"Added '{title}'.")
+                    st.session_state["admin_flash"] = f"Movie added: **{title}**"
                     st.rerun()
                 else:
                     st.error("Title and at least one genre are required.")
@@ -390,12 +394,13 @@ def admin_view():
                 glist = [g.strip() for g in e_genres.split(",") if g.strip()]
                 admin.edit_movie(movie, e_title, glist, int(e_year), e_desc)
                 persist(movies, users)
-                st.success("Movie updated.")
+                st.session_state["admin_flash"] = f"Movie updated: **{e_title}**"
                 st.rerun()
             if del_clicked:
+                removed_title = movie.title
                 admin.remove_movie(movies, mid)
                 persist(movies, users)
-                st.success("Movie removed.")
+                st.session_state["admin_flash"] = f"Movie removed: **{removed_title}**"
                 st.rerun()
 
         st.divider()
