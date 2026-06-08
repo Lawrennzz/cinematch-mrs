@@ -25,7 +25,6 @@ from models import Admin, Movie, RecommendationEngine, User
 
 st.set_page_config(
     page_title="CineMatch | AI Movie Recommendations",
-    page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -83,7 +82,7 @@ def show_h_bar(df: pd.DataFrame, value_col: str, label_col: str,
                title: str) -> None:
     st.caption(title)
     chart_df = df.set_index(label_col)[[value_col]].sort_values(value_col)
-    st.bar_chart(chart_df, use_container_width=True, horizontal=True)
+    st.bar_chart(chart_df, use_container_width=True)
 
 
 def show_v_bar(df: pd.DataFrame, label_col: str, value_col: str,
@@ -431,4 +430,8 @@ def main():
     st.sidebar.caption("ITS74004 A3 · AI Movie Recommendation System")
 
 
-main()
+try:
+    main()
+except Exception as exc:
+    st.error("CineMatch failed to start.")
+    st.exception(exc)
