@@ -82,14 +82,14 @@ def show_h_bar(df: pd.DataFrame, value_col: str, label_col: str,
                title: str) -> None:
     st.caption(title)
     chart_df = df.set_index(label_col)[[value_col]].sort_values(value_col)
-    st.bar_chart(chart_df, use_container_width=True)
+    st.bar_chart(chart_df, width="stretch")
 
 
 def show_v_bar(df: pd.DataFrame, label_col: str, value_col: str,
                title: str) -> None:
     st.caption(title)
     chart_df = df.set_index(label_col)[[value_col]]
-    st.bar_chart(chart_df, use_container_width=True)
+    st.bar_chart(chart_df, width="stretch")
 
 
 # ---------------------------------------------------------------------------
@@ -103,10 +103,11 @@ def auth_view(users: Dict[str, User]):
 
     with login_tab:
         with st.form("login_form"):
-            username = st.text_input("Username").strip().lower()
+            username = st.text_input("Username")
             password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Login", use_container_width=True)
+            submitted = st.form_submit_button("Login", width="stretch")
         if submitted:
+            username = username.strip().lower()
             user = users.get(username)
             if user and user.password == password:
                 st.session_state.current_user = username
@@ -119,11 +120,11 @@ def auth_view(users: Dict[str, User]):
 
     with register_tab:
         with st.form("register_form"):
-            new_user = st.text_input("Choose a username").strip().lower()
+            new_user = st.text_input("Choose a username")
             new_pass = st.text_input("Choose a password", type="password")
-            submitted = st.form_submit_button("Create account",
-                                              use_container_width=True)
+            submitted = st.form_submit_button("Create account", width="stretch")
         if submitted:
+            new_user = new_user.strip().lower()
             if not new_user or not new_pass:
                 st.error("Username and password are required.")
             elif new_user in users:
@@ -159,7 +160,7 @@ def movie_card(movie: Movie, user: User, key_prefix: str):
             help="0 = not rated",
         )
         if st.button("Save rating", key=f"{key_prefix}_save_{movie.movie_id}",
-                     use_container_width=True):
+                     width="stretch"):
             if rating == 0:
                 st.warning("Pick a rating between 1 and 5.")
             else:
@@ -223,7 +224,7 @@ def dashboard_view(movies, users, engine, user):
              "Match score": round(score, 3), "Avg rating": m.average_rating()}
             for m, score in recs
         ])
-        st.dataframe(rec_df, use_container_width=True, hide_index=True)
+        st.dataframe(rec_df, width="stretch", hide_index=True)
         show_h_bar(rec_df, "Match score", "Movie", "Personalised match scores")
     else:
         st.info("Rate a few movies to unlock personalised recommendations.")
@@ -264,7 +265,7 @@ def dashboard_view(movies, users, engine, user):
                     "Year": movie.year,
                     "Your rating": user.ratings.get(str(mid), "—"),
                 })
-        st.dataframe(pd.DataFrame(log_rows), use_container_width=True,
+        st.dataframe(pd.DataFrame(log_rows), width="stretch",
                      hide_index=True)
     else:
         st.info("You haven't watched anything yet. Rate a movie to get started.")
@@ -335,9 +336,9 @@ def admin_view():
                 e_desc = st.text_area("Description", value=movie.description)
                 col_a, col_b = st.columns(2)
                 save_clicked = col_a.form_submit_button("Save changes",
-                                                        use_container_width=True)
+                                                        width="stretch")
                 del_clicked = col_b.form_submit_button("Remove movie",
-                                                       use_container_width=True,
+                                                       width="stretch",
                                                        type="secondary")
             if save_clicked:
                 glist = [g.strip() for g in e_genres.split(",") if g.strip()]
@@ -358,7 +359,7 @@ def admin_view():
              "Year": m.year, "Avg rating": m.average_rating(),
              "Ratings": m.rating_count()} for m in movies
         ])
-        st.dataframe(cat_df, use_container_width=True, hide_index=True)
+        st.dataframe(cat_df, width="stretch", hide_index=True)
 
     # -- Analytics ---------------------------------------------------------
     with tab_analytics:
@@ -407,7 +408,7 @@ def main():
             "Navigate",
             ["Discover & Rate", "My Dashboard", "Admin Console"],
         )
-        if st.sidebar.button("Log out", use_container_width=True):
+        if st.sidebar.button("Log out", width="stretch"):
             st.session_state.pop("current_user", None)
             st.session_state.pop("admin_ok", None)
             st.rerun()

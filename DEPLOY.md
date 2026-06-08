@@ -1,34 +1,38 @@
-# Streamlit Cloud deployment fix
+# Streamlit Cloud deployment — READ THIS
+
+## Why the app fails
 
 Your logs show:
 
 ```text
-Using Python 3.14.5 environment at /home/adminuser/venv
+Using Python 3.14.5 environment
 ```
 
-**Streamlit Cloud ignores `.python-version`.** Python must be chosen in the
-deploy UI. Python 3.14 is too new and often breaks apps.
+**Python 3.14 is the problem.** Streamlit Cloud ignores `.python-version`.
+Pushing code changes will NOT fix this. You must redeploy with Python 3.12.
 
-## Fix (required) — redeploy with Python 3.12
+## Fix (5 minutes)
 
-1. Go to https://share.streamlit.io
-2. Open your app dashboard
-3. Click **⋮** (three dots) → **Delete app** → confirm
-4. Click **Create app** → **Deploy a public app from GitHub**
-5. Set:
+1. Open https://share.streamlit.io
+2. Find your app → click **⋮** → **Delete app** → confirm delete
+3. Click **Create app**
+4. Select **Deploy a public app from GitHub**
+5. Choose:
    - Repository: `Lawrennzz/cinematch-mrs`
    - Branch: `main`
-   - Main file: `app.py`
+   - Main file path: `app.py`
 6. Click **Advanced settings**
-7. Set **Python version** to **3.12** (NOT 3.14)
-8. Click **Save** → **Deploy**
-9. Wait until logs show `Using Python 3.12.x` and the app loads
+7. Change **Python version** from 3.14 → **3.12**
+8. Click **Save**
+9. Click **Deploy**
+10. Wait 2–3 minutes. Logs must show `Using Python 3.12.x` (NOT 3.14)
 
-## Verify
+## How to confirm it worked
 
-Open your new URL in an incognito window. You should see the CineMatch login
-page with demo accounts: `alice / alice123`.
+- Login page shows **CineMatch**
+- Demo login: `alice` / `alice123`
+- Admin key: `ADMIN-2026-MRS`
 
-## Admin key
+## If it still fails after Python 3.12 redeploy
 
-`ADMIN-2026-MRS`
+Copy the **red error text** from Manage app → Logs and send it.
